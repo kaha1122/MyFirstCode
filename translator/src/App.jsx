@@ -4,20 +4,28 @@ import TranslationCard from './components/TranslationCard';
 import './App.css';
 
 function App() {
+  // API Key from Environment Variable
+  const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const [geminiApiKey, setGeminiApiKey] = useState(envApiKey || '');
+
   const [inputText, setInputText] = useState('');
-  const [translations, setTranslations] = useState({
-    en: '',
-    ja: '',
-    zh: ''
-  });
+  const [translations, setTranslations] = useState({ en: '', ja: '', zh: '' });
   const [isTranslating, setIsTranslating] = useState(false);
+  const [learningTips, setLearningTips] = useState({
+    en: "Translation learning tips will appear here.",
+    ja: "Translation learning tips will appear here.",
+    zh: "Translation learning tips will appear here."
+  });
+  const [isGeneratingTips, setIsGeneratingTips] = useState(false);
 
   const handleTranslate = async () => {
     if (!inputText.trim()) return;
 
     setIsTranslating(true);
+    setIsGeneratingTips(true);
 
     try {
+      // 1. Translate
       const fetchTranslation = async (text, targetLang) => {
         const response = await fetch(
           `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ko|${targetLang}`
@@ -33,11 +41,86 @@ function App() {
       ]);
 
       setTranslations({ en, ja, zh });
+
+      // 2. Generate Tips with Gemini (if API Key is present)
+      if (geminiApiKey) {
+        generateGeminiTips(inputText, { en, ja, zh });
+      } else {
+        setLearningTips({
+          en: "Gemini API Key를 입력하면 AI 팁을 볼 수 있습니다.",
+          ja: "Gemini API Key를 입력하면 AI 팁을 볼 수 있습니다.",
+          zh: "Gemini API Key를 입력하면 AI 팁을 볼 수 있습니다."
+        });
+        setIsGeneratingTips(false);
+      }
+
     } catch (error) {
       console.error("Translation failed:", error);
       alert("Translation failed. Please try again.");
+      setIsGeneratingTips(false);
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  const generateGeminiTips = async (original, translated) => {
+    try {
+      const prompt = `
+        You are a language tutor. Provide a helpful learning tip for each of the following translations of the Korean sentence: "${original}".
+        
+        Translations:
+        1. English: "${translated.en}"
+        2. Japanese: "${translated.ja}"
+        3. Chinese: "${translated.zh}"
+
+        Return the response in strictly valid JSON format with keys "en", "ja", "zh".
+        Each value should be an array of 2-3 short strings (bullet points) containing pronunciation tips or grammar notes.
+        Example: { "en": ["Pronounce 'th' softly", "Focus on intonation"], "ja": [...], "zh": [...] }
+        Do not use Markdown code blocks. Just raw JSON.
+      `;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Gemini API Error Details:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody: errorData
+        });
+
+        let errorMessage = `API 오류 (${response.status})`;
+        if (response.status === 404) errorMessage = "모델을 찾을 수 없습니다. (API 키 권한 확인 필요)";
+        if (response.status === 429) errorMessage = "요청 한도가 초과되었습니다. (잠시 후 다시 시도해주세요)";
+        if (response.status === 400 || response.status === 403) errorMessage = "API 키가 유효하지 않거나 권한이 없습니다.";
+
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      const textResponse = data.candidates[0].content.parts[0].text;
+
+      // Clean up markdown code blocks if present
+      const jsonString = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+      const tips = JSON.parse(jsonString);
+
+      setLearningTips(tips);
+    } catch (error) {
+      console.error("Full Error Object:", error);
+      setLearningTips({
+        en: [`${error.message}`],
+        ja: [`${error.message}`],
+        zh: [`${error.message}`]
+      });
+    } finally {
+      setIsGeneratingTips(false);
     }
   };
 
@@ -81,6 +164,22 @@ function App() {
             )}
           </button>
         </div>
+
+        {/* API Key Input (Only show if not set in environment) */}
+        {!envApiKey && (
+          <div className="api-key-section">
+            <input
+              type="password"
+              placeholder="Google Gemini API Key 입력"
+              value={geminiApiKey}
+              onChange={(e) => setGeminiApiKey(e.target.value)}
+              className="api-key-input"
+            />
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="api-key-link">
+              키 발급받기 &rarr;
+            </a>
+          </div>
+        )}
       </div>
 
       <div className="cards-grid">
@@ -88,7 +187,7 @@ function App() {
           language="English"
           text={translations.en}
           fullLanguage="ENGLISH"
-          learningTip="'~라면'에 해당하는 if it were 구문과 '더더욱'에 해당하는 even better 표현에 주목하세요."
+          learningTip={learningTips.en}
           badgeColor="var(--badge-en)"
           badgeTextColor="var(--badge-en-text)"
           onSpeak={() => handleSpeak(translations.en, 'en-US')}
@@ -97,7 +196,7 @@ function App() {
           language="Japanese"
           text={translations.ja}
           fullLanguage="日本語"
-          learningTip="'오늘'은 今日(きょう), '~이라면'은 ~なら를 사용합니다. '더더욱'은 なおさら(尚更)로 표현합니다."
+          learningTip={learningTips.ja}
           badgeColor="var(--badge-ja)"
           badgeTextColor="var(--badge-ja-text)"
           onSpeak={() => handleSpeak(translations.ja, 'ja-JP')}
@@ -106,7 +205,7 @@ function App() {
           language="Chinese"
           text={translations.zh}
           fullLanguage="中文"
-          learningTip="'오늘라면'은 如果今天로 표현합니다. 就更好 구조는 바람이나 예측을 나타냅니다."
+          learningTip={learningTips.zh}
           badgeColor="var(--badge-zh)"
           badgeTextColor="var(--badge-zh-text)"
           onSpeak={() => handleSpeak(translations.zh, 'zh-CN')}

@@ -27,12 +27,21 @@ const TranslationCard = ({
 
             <div className="card-body">
                 <p className="translated-text">{text || '...'}</p>
-                {/* Phonetic guide could go here if available */}
             </div>
 
             <div className="card-footer">
                 <span className="tip-label">LEARNING TIP</span>
-                <p className="tip-content">{learningTip}</p>
+                <div className="tip-content-wrapper">
+                    {typeof learningTip === 'string' ? (
+                        <p className="tip-content">{learningTip}</p>
+                    ) : (
+                        learningTip && learningTip.map((tip, index) => (
+                            <p key={index} className="tip-content">
+                                • {tip}
+                            </p>
+                        ))
+                    )}
+                </div>
             </div>
         </div>
     );
