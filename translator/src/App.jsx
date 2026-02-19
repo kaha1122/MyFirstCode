@@ -6,8 +6,16 @@ import './App.css';
 function App() {
   // API Key from Environment Variable
   const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  console.log('Build Version: Feb-19-v4');
-  console.log('ENV Check - VITE_GEMINI_API_KEY exists:', !!envApiKey);
+
+  // 정밀 진단 로그
+  console.log('--- System Diagnostic Start ---');
+  console.log('Build Version: Feb-20-v5');
+  console.log('Current VITE_GEMINI_API_KEY:', envApiKey ? 'Exists (Key Found!)' : 'None (Key Not Found)');
+
+  // VITE_로 시작하는 모든 환경 변수 키 목록 확인 (오타 방지용)
+  const allViteKeys = Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'));
+  console.log('Detected VITE_ keys:', allViteKeys);
+  console.log('--- System Diagnostic End ---');
 
   const [geminiApiKey, setGeminiApiKey] = useState(envApiKey || '');
 
