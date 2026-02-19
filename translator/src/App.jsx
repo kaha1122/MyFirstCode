@@ -9,7 +9,7 @@ function App() {
 
   // 정밀 진단 로그
   console.log('--- System Diagnostic Start ---');
-  console.log('Build Version: Feb-20-v5');
+  console.log('Build Version: Feb-20-v6');
   console.log('Current VITE_GEMINI_API_KEY:', envApiKey ? 'Exists (Key Found!)' : 'None (Key Not Found)');
 
   // VITE_로 시작하는 모든 환경 변수 키 목록 확인 (오타 방지용)
