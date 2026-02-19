@@ -8,15 +8,35 @@ function App() {
   const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
   const [geminiApiKey, setGeminiApiKey] = useState(envApiKey || '');
 
-  const [inputText, setInputText] = useState('');
-  const [translations, setTranslations] = useState({ en: '', ja: '', zh: '' });
-  const [isTranslating, setIsTranslating] = useState(false);
-  const [learningTips, setLearningTips] = useState({
-    en: "Translation learning tips will appear here.",
-    ja: "Translation learning tips will appear here.",
-    zh: "Translation learning tips will appear here."
+  // Load initial states from localStorage (Lazy Initial State)
+  const [inputText, setInputText] = useState(() => localStorage.getItem('inputText') || '');
+  const [translations, setTranslations] = useState(() => {
+    const saved = localStorage.getItem('translations');
+    return saved ? JSON.parse(saved) : { en: '', ja: '', zh: '' };
   });
+  const [learningTips, setLearningTips] = useState(() => {
+    const saved = localStorage.getItem('learningTips');
+    return saved ? JSON.parse(saved) : {
+      en: "Translation learning tips will appear here.",
+      ja: "Translation learning tips will appear here.",
+      zh: "Translation learning tips will appear here."
+    };
+  });
+  const [pronunciations, setPronunciations] = useState(() => {
+    const saved = localStorage.getItem('pronunciations');
+    return saved ? JSON.parse(saved) : { en: '', ja: '', zh: '' };
+  });
+
+  const [isTranslating, setIsTranslating] = useState(false);
   const [isGeneratingTips, setIsGeneratingTips] = useState(false);
+
+  // Persistence: Save to localStorage whenever data changes
+  React.useEffect(() => {
+    localStorage.setItem('inputText', inputText);
+    localStorage.setItem('translations', JSON.stringify(translations));
+    localStorage.setItem('learningTips', JSON.stringify(learningTips));
+    localStorage.setItem('pronunciations', JSON.stringify(pronunciations));
+  }, [inputText, translations, learningTips, pronunciations]);
 
   const handleTranslate = async () => {
     if (!inputText.trim()) return;
@@ -63,22 +83,36 @@ function App() {
     }
   };
 
-  const generateGeminiTips = async (original, translated) => {
+  const generateGeminiTips = async (original, translated, retryCount = 0) => {
     try {
       const prompt = `
-        You are a language tutor. Provide a helpful learning tip for each of the following translations of the Korean sentence: "${original}".
+        You are a language tutor. Provide a helpful learning tip AND a pronunciation guide for each of the following translations of the Korean sentence: "${original}".
         
         Translations:
         1. English: "${translated.en}"
         2. Japanese: "${translated.ja}"
         3. Chinese: "${translated.zh}"
 
-        Return the response in strictly valid JSON format with keys "en", "ja", "zh".
-        Each value should be an array of 2-3 short strings (bullet points) containing pronunciation tips or grammar notes.
-        Example: { "en": ["Pronounce 'th' softly", "Focus on intonation"], "ja": [...], "zh": [...] }
+        Requirements for Pronunciation Guides:
+        1. English (en): Provide the IPA (International Phonetic Alphabet) pronunciation guide.
+        2. Japanese (ja): Provide the full Hiragana (ひらがな) transcription for the entire sentence, including any Kanji.
+        3. Chinese (zh): Provide the Pinyin (한어병음) with tone marks.
+
+        Important: Provide all learning tips in Korean (한국어로 작성).
+        Return the response in strictly valid JSON format with keys "tips" and "pronunciations".
+        Each of those should have sub-keys "en", "ja", "zh".
+        Inside "tips", each value should be an array of 2-3 short strings in Korean.
+        Inside "pronunciations", each value should be a single string (the guide).
+
+        Example Format:
+        {
+          "tips": { "en": ["...", "..."], "ja": [...], "zh": [...] },
+          "pronunciations": { "en": "/.../", "ja": "...", "zh": "..." }
+        }
         Do not use Markdown code blocks. Just raw JSON.
       `;
 
+      // Use Gemini 2.0 Flash as requested by user
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
         {
@@ -90,6 +124,14 @@ function App() {
 
       if (!response.ok) {
         const errorData = await response.json();
+
+        // 429 Error Retry Logic (1 attempt after 2 seconds)
+        if (response.status === 429 && retryCount < 1) {
+          console.warn("Retrying Gemini API due to quota limit...");
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return generateGeminiTips(original, translated, retryCount + 1);
+        }
+
         console.error("Gemini API Error Details:", {
           status: response.status,
           statusText: response.statusText,
@@ -97,7 +139,7 @@ function App() {
         });
 
         let errorMessage = `API 오류 (${response.status})`;
-        if (response.status === 404) errorMessage = "모델을 찾을 수 없습니다. (API 키 권한 확인 필요)";
+        if (response.status === 404) errorMessage = "모델을 찾을 수 없습니다.";
         if (response.status === 429) errorMessage = "요청 한도가 초과되었습니다. (잠시 후 다시 시도해주세요)";
         if (response.status === 400 || response.status === 403) errorMessage = "API 키가 유효하지 않거나 권한이 없습니다.";
 
@@ -109,9 +151,10 @@ function App() {
 
       // Clean up markdown code blocks if present
       const jsonString = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      const tips = JSON.parse(jsonString);
+      const result = JSON.parse(jsonString);
 
-      setLearningTips(tips);
+      setLearningTips(result.tips);
+      setPronunciations(result.pronunciations);
     } catch (error) {
       console.error("Full Error Object:", error);
       setLearningTips({
@@ -152,10 +195,10 @@ function App() {
           <button
             className="translate-btn"
             onClick={handleTranslate}
-            disabled={isTranslating}
+            disabled={isTranslating || isGeneratingTips}
           >
-            {isTranslating ? (
-              '번역 중...'
+            {isTranslating || isGeneratingTips ? (
+              '처리 중...'
             ) : (
               <>
                 <Sparkles size={18} />
@@ -187,6 +230,7 @@ function App() {
           language="English"
           text={translations.en}
           fullLanguage="ENGLISH"
+          pronunciation={pronunciations.en}
           learningTip={learningTips.en}
           badgeColor="var(--badge-en)"
           badgeTextColor="var(--badge-en-text)"
@@ -196,6 +240,7 @@ function App() {
           language="Japanese"
           text={translations.ja}
           fullLanguage="日本語"
+          pronunciation={pronunciations.ja}
           learningTip={learningTips.ja}
           badgeColor="var(--badge-ja)"
           badgeTextColor="var(--badge-ja-text)"
@@ -205,6 +250,7 @@ function App() {
           language="Chinese"
           text={translations.zh}
           fullLanguage="中文"
+          pronunciation={pronunciations.zh}
           learningTip={learningTips.zh}
           badgeColor="var(--badge-zh)"
           badgeTextColor="var(--badge-zh-text)"

@@ -1,11 +1,12 @@
 import React from 'react';
-import { Volume2 } from 'lucide-react';
+import { Play } from 'lucide-react';
 import './TranslationCard.css';
 
 const TranslationCard = ({
     language,
     fullLanguage,
     text,
+    pronunciation,
     learningTip,
     badgeColor,
     badgeTextColor,
@@ -20,13 +21,17 @@ const TranslationCard = ({
                 >
                     {fullLanguage || language}
                 </span>
-                <button className="speak-button" onClick={onSpeak} title="Listen">
-                    <Volume2 size={16} />
-                </button>
             </div>
 
             <div className="card-body">
-                <p className="translated-text">{text || '...'}</p>
+                <p className={`translated-text font-${language.toLowerCase()}`}>
+                    {text || '...'}
+                </p>
+                {pronunciation && (
+                    <p className={`pronunciation-text font-${language.toLowerCase()}`}>
+                        {pronunciation}
+                    </p>
+                )}
             </div>
 
             <div className="card-footer">
@@ -43,6 +48,9 @@ const TranslationCard = ({
                     )}
                 </div>
             </div>
+            <button className="speak-button" onClick={onSpeak} title="Listen">
+                <Play size={25} fill="white" />
+            </button>
         </div>
     );
 };
