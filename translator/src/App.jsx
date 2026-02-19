@@ -6,6 +6,9 @@ import './App.css';
 function App() {
   // API Key from Environment Variable
   const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  console.log('Build Version: Feb-19-v4');
+  console.log('ENV Check - VITE_GEMINI_API_KEY exists:', !!envApiKey);
+
   const [geminiApiKey, setGeminiApiKey] = useState(envApiKey || '');
 
   // Load initial states from localStorage (Lazy Initial State)
