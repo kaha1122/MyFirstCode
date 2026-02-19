@@ -4,14 +4,8 @@ import TranslationCard from './components/TranslationCard';
 import './App.css';
 
 function App() {
-  // API Key 후보군 탐색 (오타 및 경로 문제 대비)
-  const envApiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_KEY;
-
-  console.log('--- System Diagnostic Start (v7) ---');
-  console.log('Detected API Key status:', envApiKey ? 'YES (Valid)' : 'NO (Missing)');
-  console.log('Available Env Keys:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')));
-  console.log('--- System Diagnostic End ---');
-
+  // API Key from Environment Variable
+  const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
   const [geminiApiKey, setGeminiApiKey] = useState(envApiKey || '');
 
   // Load initial states from localStorage (Lazy Initial State)
