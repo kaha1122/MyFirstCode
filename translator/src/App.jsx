@@ -18,8 +18,8 @@ function App() {
     const saved = localStorage.getItem('learningTips');
     return saved ? JSON.parse(saved) : {
       en: "Translation learning tips will appear here.",
-      ja: "Translation learning tips will appear here.",
-      zh: "Translation learning tips will appear here."
+      ja: "ここに翻訳 Learning tipsが表示されます",
+      zh: "翻译学习提示将显示在这里。"
     };
   });
   const [pronunciations, setPronunciations] = useState(() => {
@@ -92,6 +92,11 @@ function App() {
         1. English: "${translated.en}"
         2. Japanese: "${translated.ja}"
         3. Chinese: "${translated.zh}"
+
+        Helpful learning tips:
+        1.Key grammatical features or patterns used in the translation.
+        2.Nuances of specific words and why they were chosen.
+        3.Useful synonyms or alternative expressions that can be used in similar contexts.
 
         Requirements for Pronunciation Guides:
         1. English (en): Provide the IPA (International Phonetic Alphabet) pronunciation guide.
