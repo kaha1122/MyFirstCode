@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Languages, Sparkles } from 'lucide-react';
 import TranslationCard from './components/TranslationCard';
+import { Analytics } from '@vercel/analytics/react';
 import './App.css';
 
 function App() {
@@ -182,6 +183,7 @@ function App() {
 
   return (
     <div className="app-container">
+      <Analytics />
       <header className="app-header">
         <span className="daily-tag">Daily Study</span>
         <h1 className="app-title">오늘의 문장 학습</h1>
